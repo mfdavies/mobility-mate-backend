@@ -97,7 +97,8 @@ def texttospeech():
     content = data.get('content')
     def generate():
         sentences = re.split(r'(?<=[.!?])', content)
-        sentences = [sentence.strip() for sentence in sentences if sentence.strip()] # Try leaving this out to allow for pauses in the text to speach
+        sentences = [sentence for sentence in sentences if sentence]
+        # sentences = [sentence.strip() for sentence in sentences if sentence.strip()] # Try leaving this out to allow for pauses in the text to speach
         for sentence in sentences:
             audio_response = client.audio.speech.create(
                 model="tts-1",
