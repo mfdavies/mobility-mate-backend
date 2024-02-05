@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, Response, request, jsonify, render_template, stream_with_context
 from flask_mail import Mail, Message
 from dotenv import load_dotenv
 import os
@@ -7,6 +7,8 @@ import time
 import firebase_admin
 from firebase_admin import credentials
 from flask_cors import CORS
+from openai import OpenAI
+import re
 
 load_dotenv()
 app = Flask(__name__)
@@ -87,6 +89,27 @@ def index():
     context = {"server_time": format_server_time()}
     return render_template("index.html", context=context)
 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+@app.route("/text_to_speech", methods=['POST'])
+def texttospeech():
+    data = request.get_json()
+    content = data.get('content')
+    def generate():
+        sentences = re.split(r'(?<=[.!?])', content)
+        sentences = [sentence for sentence in sentences if sentence]
+        # sentences = [sentence.strip() for sentence in sentences if sentence.strip()] # Try leaving this out to allow for pauses in the text to speach
+        for sentence in sentences:
+            audio_response = client.audio.speech.create(
+                model="tts-1",
+                voice="shimmer",
+                input=sentence,
+                response_format="opus"
+            )
+
+            for audio_chunk in audio_response.iter_bytes(1024):
+                yield audio_chunk
+    return Response(stream_with_context(generate()), content_type='audio/opus')
 
 if __name__ == "__main__":
     app.run(debug=True, port=os.getenv("PORT", default=5000))
