@@ -48,18 +48,6 @@ class Conversation:
         self.conversation_ref.update({"history": self.history})
         return response.choices[0].message.content.strip()
 
-    def generate_greeting(self):
-        self.history.append({"role": "system", "content": self.prompt})
-        response = self.request_reply()
-        self.history.append(
-            {
-                "role": "assistant",
-                "content": response.choices[0].message.content.strip(),
-            }
-        )
-        self.conversation_ref.update({"history": self.history})
-        return response.choices[0].message.content.strip()
-
     def engineer_prompt(self, user_doc_ref):
         exercises = user_doc_ref.get().get("exercises")
         if exercises:
