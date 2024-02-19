@@ -57,11 +57,16 @@ class Conversation:
         self.prompt += f". When necessary, please refer the patient to contact their physiotherapist who's name is: {user_doc_ref.parent.parent.get().get('name')}."
 
     def end_conversation(self):
-        print(self.history)
+        # Summarize the entire conversation
         self.history.append(
             {
                 "role": "system",
-                "content": "Summarize the entire conversation between the user and the assistant for a physiotherapist focus on the answers the user game. Give me only the summary, no other text.",
+                "content": """Summarize the entire conversation between the user 
+                    and the assistant. Focus on the answers the user gave, in context of how
+                    they are physically feeling and progressing with their exercises.
+                    The summary wil be used to quickly inform the physiotherapist of 
+                    important information they should be aware of about the patient.
+                    Return only the summary, no other text.""",
             }
         )
         response = client.chat.completions.create(
@@ -69,7 +74,32 @@ class Conversation:
         )
         self.summary = response.choices[0].message.content.strip()
 
-        # Add the summary to the conversation collection
-        self.conversation_ref.update({"summary": self.summary})
+        # Determine if the summary is relevant to the physio
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "assistant",
+                    "content": self.summary,
+                },
+                {
+                    "role": "system",
+                    "content": """Does the summary above contain information about 
+                    a patient that is relevant to a physiotherapist's job? Key 
+                    topics would include their health, progress on their assigned
+                    exercises, and physical issues they have experienced.
+                    
+                    Return only a T or F, indicating if the summary is classified as relevant. 
+                    """,
+                },
+            ],
+            temperature=0.5,
+        )
 
-        return self.summary
+        # Store relevant summary or delete conversation
+        if response.choices[0].message.content.strip() == "T":
+            self.conversation_ref.update({"summary": self.summary})
+            return self.summary
+        else:
+            self.conversation_ref.delete()
+            return ""
